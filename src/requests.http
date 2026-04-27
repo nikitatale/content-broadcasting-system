@@ -1,0 +1,111 @@
+### =========================================
+### 1 API Health Check
+### =========================================
+GET http://localhost:3000/
+
+
+### =========================================
+### 2 Register Principal
+### =========================================
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+"name":"Principal",
+"email":"principal@test.com",
+"password":"123456",
+"role":"principal"
+}
+
+
+### =========================================
+### 3 Register Teacher
+### =========================================
+POST http://localhost:3000/auth/register
+Content-Type: application/json
+
+{
+"name":"Teacher1",
+"email":"teacher@test.com",
+"password":"123456",
+"role":"teacher"
+}
+
+
+### =========================================
+### 4 Principal Login
+### Copy token after login
+### =========================================
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+"email":"principal@test.com",
+"password":"123456"
+}
+
+
+### =========================================
+### 5 Teacher Login
+### Copy token after login
+### =========================================
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+"email":"teacher@test.com",
+"password":"123456"
+}
+
+
+### =========================================
+### 6 Teacher View My Content
+### Replace TEACHER_TOKEN
+### =========================================
+GET http://localhost:3000/content/my
+Authorization: Bearer TEACHER_TOKEN
+
+
+### =========================================
+### 7 Principal View All Content
+### Replace PRINCIPAL_TOKEN
+### =========================================
+GET http://localhost:3000/content/all
+Authorization: Bearer PRINCIPAL_TOKEN
+
+
+### =========================================
+### 8 Approve Content (example id=2)
+### =========================================
+PATCH http://localhost:3000/content/2/approve
+Authorization: Bearer PRINCIPAL_TOKEN
+
+
+### =========================================
+### 9 Reject Content Example
+### =========================================
+PATCH http://localhost:3000/content/2/reject
+Content-Type: application/json
+Authorization: Bearer PRINCIPAL_TOKEN
+
+{
+"rejection_reason":"Invalid content"
+}
+
+
+### =========================================
+### 10 Public Broadcast Teacher 2
+### =========================================
+GET http://localhost:3000/content/live/2
+
+
+### =========================================
+### 11 Subject Filter
+### =========================================
+GET http://localhost:3000/content/live/2?subject=maths
+
+
+### =========================================
+### 12 Edge Case Invalid Teacher
+### =========================================
+GET http://localhost:3000/content/live/999
