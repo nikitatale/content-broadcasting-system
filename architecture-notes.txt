@@ -1,0 +1,191 @@
+
+
+CONTENT BROADCASTING SYSTEM - ARCHITECTURE NOTES
+=================================================
+
+1. AUTHENTICATION & RBAC FLOW
+-------------------------------
+- JWT (JSON Web Token) is used for authentication.
+
+- On login, a signed JWT is issued containing { id, role }.
+
+- All protected routes pass through the `authenticate` middleware which:
+    1. Reads the Authorization: Bearer <token> header
+
+    2. Verifies the token with JWT_SECRET
+    
+    3. Fetches the user from DB and attaches to req.user
+
+- Role-based access is enforced via the `authorize(...roles)` middleware:
+    - authorize('teacher')   -> only teachers can access
+
+    - authorize('principal') -> only principal can access
+
+- Sensitive data like password_hash is never returned in responses.
+
+2. SUBJECT-BASED SYSTEM DESIGN
+--------------------------------
+
+- Content has a `subject` field (e.g., maths, science).
+
+- The public API groups active content by subject.
+
+- Each subject runs its own independent rotation cycle.
+
+- Teachers can upload content for any subject they wish.
+
+- Subjects are dynamic (no fixed list), just a string field.
+
+3. UPLOAD HANDLING APPROACH
+-----------------------------
+- Multer is used for file upload (disk storage strategy).
+
+- Files are saved to /src/uploads/ with a unique timestamp-based filename.
+
+- Validation enforced:
+    * Only image/jpeg, image/png, image/gif are allowed (fileFilter)
+    * Max file size: 10MB (limits.fileSize)
+    * title and subject are required fields checked in controller
+
+- File metadata (url, type, size) is stored in the content table.
+
+- Files are served as static assets via Express: GET /uploads/<filename>
+
+4. APPROVAL WORKFLOW DESIGN
+-----------------------------
+Content lifecycle:  uploaded -> pending -> approved / rejected
+- When teacher uploads, status = 'pending'
+
+- Principal views all content via GET /content/all (with optional ?status= filter)
+
+- Principal approves:  PATCH /content/:id/approve
+    -> status = 'approved', approved_by, approved_at are set
+- Principal rejects:   PATCH /content/:id/reject
+    -> status = 'rejected', rejection_reason is required and stored
+
+- Only 'pending' content can be approved or rejected.
+
+- Teacher can view rejection_reason via GET /content/my
+
+5. SCHEDULING / ROTATION LOGIC (IMPORTANT)
+-------------------------------------------
+How it works:
+- When a student hits GET /content/live/:teacherId, the system:
+    1. Fetches all APPROVED content for that teacher where:
+           start_time <= NOW <= end_time
+    2. Groups them by subject
+    3. For each subject, runs the rotation algorithm:
+
+ROTATION ALGORITHM:
+- Content items in a subject are sorted by created_at (oldest first = rotation order)
+
+- Each item has a rotation_duration (default 5 minutes)
+
+- Total cycle time = sum of all durations in that subject
+
+Example (Maths, 3 items):
+  Content A: 5 min
+  Content B: 3 min
+  Content C: 7 min
+  Total cycle: 15 min
+
+- Reference epoch = start of today (00:00:00)
+
+- elapsed = now - startOfDay (milliseconds)
+
+- positionInCycle = elapsed % totalCycleMs
+
+Then walk through items:
+  0-5min window   -> Content A is active
+  5-8min window   -> Content B is active
+  8-15min window  -> Content C is active
+  15min+ -> loops back (Content A again)
+
+
+- Each subject rotates independently.
+
+- Response returns one active content per subject.
+
+EDGE CASES HANDLED:
+
+- No approved content -> "No content available"
+
+- Content approved but start_time/end_time not set -> NOT shown (requires scheduling)
+
+- Content outside time window -> NOT shown
+
+- Invalid teacherId -> "No content available"
+
+- Optional ?subject= query param to filter by subject
+
+6. DATABASE DESIGN DECISIONS
+------------------------------
+Two core tables:
+
+  users   - stores principal and teacher accounts (role enum)
+
+  content - stores all uploaded content with lifecycle status
+
+Why no separate ContentSlot / ContentSchedule tables?
+
+- The assignment's scheduling can be handled within the content table itself.
+
+- rotation_duration is stored directly on each content row.
+
+- This keeps the schema simple and easy to explain.
+
+- Rotation order is derived from created_at (no extra table needed).
+
+Relationships:
+- content.uploaded_by -> users.id (teacher who uploaded)
+
+- content.approved_by -> users.id (principal who approved)
+
+7. FOLDER STRUCTURE
+---------------------
+src/
+  config/        - Database connection (Sequelize + PostgreSQL)
+  controllers/   - Business logic for auth, content, broadcast
+  middlewares/   - JWT auth, role authorization, multer upload
+  models/        - Sequelize models (User, Content)
+  routes/        - Express route definitions
+  uploads/       - Local file storage for uploaded images
+  index.js       - App entry point (Express setup, DB sync, server start)
+
+8. MIDDLEWARE USAGE
+--------------------
+- authenticate  : JWT verification, user hydration
+
+- authorize     : Role-based gate (principal/teacher)
+
+- upload        : Multer file handling with validation
+
+- Error handler : Global Express error handler for multer and server errors
+
+9. SCALABILITY APPROACH
+-----------------------
+Current implementation is intentionally simple for assignment scope.
+
+Possible future improvements:
+
+- Redis caching for live content API
+
+- Rate limiting for public endpoint
+
+- S3 for cloud file storage
+
+- DB indexing for faster filtering
+
+
+
+DATABASE:
+
+
+- Add indexes on: content.status, content.uploaded_by, content.subject, content.start_time, content.end_time
+
+
+- Connection pooling is already handled by Sequelize
+
+QUEUES:
+
+- Email notifications to teachers on approve/reject
