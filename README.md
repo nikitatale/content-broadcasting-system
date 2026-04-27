@@ -1,9 +1,8 @@
 # Content Broadcasting System
 
 A backend system that allows teachers to upload content (images), principal to approve/reject it, and students to access live/active content via public API.
-This project was built for backend technical assignment focusing on simple and clear implementation.
-
-I kept scheduling logic intentionally simple for explainability.
+- This project was built for backend technical assignment focusing on simple and clear implementation.
+- I kept scheduling logic intentionally simple for explainability.
 
 ## Tech Stack
 
