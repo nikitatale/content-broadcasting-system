@@ -242,3 +242,6 @@ Upload → pending → approved → visible in live API
 - Rotation order is based on content upload time (created_at)
 - Subject names are case-insensitive (stored as lowercase)
 - One principal is enough (no multi-principal support needed)
+- API documentation included in repository README.
+- Deployment skipped due assignment scope.
+- Project runs locally.
